@@ -1,0 +1,27 @@
+# Apis
+
+1. (GET) /tasks
+    Return array of tasks
+
+2. (GET) /task/{id:[0-9]+}
+    Returns specific task
+    
+3. (POST) /task
+    Create task
+    request.body (json)
+    {
+        "desc": "Task Description",
+        "isDone": true/false
+    }
+
+4. (PUT) /task
+    Update task
+    request.body (json)
+    {
+        "id": <task_id> number,
+        "desc": <task desc> string,
+        "isDone": true/false
+    }
+
+5. (DELETE) /task/{id:[0-9]+}
+    Delete task
