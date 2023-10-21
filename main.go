@@ -8,10 +8,6 @@ import (
 	"github.com/shubhamvernekar/go-todo-api/api"
 )
 
-func rootRoute(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "Hello ")
-}
-
 func main() {
 	router := mux.NewRouter()
 
