@@ -18,6 +18,7 @@ func SetupRoutes(router *mux.Router) {
 	router.HandleFunc("/task", createTask).Methods("POST")
 	router.HandleFunc("/task/{id:[0-9]+}", deleteTask).Methods("DELETE")
 	router.HandleFunc("/task", updateTask).Methods("PUT")
+	router.HandleFunc("/task/markDone/{id:[0-9]+}", markDone).Methods("GET")
 }
 
 func getTasks(w http.ResponseWriter, r *http.Request) {
@@ -61,8 +62,6 @@ func createTask(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(newTask)
-
-	printTask()
 }
 
 func deleteTask(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +86,6 @@ func deleteTask(w http.ResponseWriter, r *http.Request) {
 		"message" : "Successfuly deleted"
 	}`)
 
-	printTask()
 }
 
 func updateTask(w http.ResponseWriter, r *http.Request) {
@@ -111,7 +109,29 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(t)
 
-	printTask()
+}
+
+func markDone(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	taskId, err := strconv.Atoi(params["id"])
+
+	if err != nil {
+		fmt.Println("error parsing id")
+		http.Error(w, "error parsing id", http.StatusInternalServerError)
+		return
+	}
+
+	t := findTaskByID(taskId)
+
+	if t == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	t.IsDone = !t.IsDone
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(t)
 }
 
 func findTaskByID(ID int) *models.Task {

@@ -29,3 +29,6 @@
 
 5. **DELETE** `/task/{id:[0-9]+}`
    - Delete task
+
+6. **PUT** `/task/{id:[0-9]+}`
+   - Toggle task done status
