@@ -1,4 +1,4 @@
-package todo
+package main
 
 var (
 	BASE_URL = "http://localhost"
