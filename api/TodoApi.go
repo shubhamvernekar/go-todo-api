@@ -29,7 +29,6 @@ func getTasks(w http.ResponseWriter, r *http.Request) {
 func getTask(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	taskId, err := strconv.Atoi(params["id"])
-
 	if err != nil {
 		fmt.Println("error parsing id")
 		http.Error(w, "error parsing id", http.StatusInternalServerError)
@@ -50,7 +49,6 @@ func getTask(w http.ResponseWriter, r *http.Request) {
 func createTask(w http.ResponseWriter, r *http.Request) {
 	var newTask models.Task
 	err := json.NewDecoder(r.Body).Decode(&newTask)
-
 	if err != nil {
 		fmt.Println("error decoding request body")
 		http.Error(w, "error decoding request body", http.StatusInternalServerError)
@@ -67,7 +65,6 @@ func createTask(w http.ResponseWriter, r *http.Request) {
 func deleteTask(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	taskId, err := strconv.Atoi(params["id"])
-
 	if err != nil {
 		fmt.Println("error parsing id")
 		http.Error(w, "error parsing id", http.StatusInternalServerError)
@@ -83,15 +80,13 @@ func deleteTask(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(`{
-		"message" : "Successfuly deleted"
+		"message" : "Successfully deleted"
 	}`)
-
 }
 
 func updateTask(w http.ResponseWriter, r *http.Request) {
 	var updateTask models.Task
 	err := json.NewDecoder(r.Body).Decode(&updateTask)
-
 	if err != nil {
 		fmt.Println("error decoding request body")
 		http.Error(w, "error decoding request body", http.StatusInternalServerError)
@@ -108,13 +103,11 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 	t.IsDone = updateTask.IsDone
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(t)
-
 }
 
 func markDone(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	taskId, err := strconv.Atoi(params["id"])
-
 	if err != nil {
 		fmt.Println("error parsing id")
 		http.Error(w, "error parsing id", http.StatusInternalServerError)

@@ -1,11 +1,8 @@
-module github.com/shubhamvernekar/go-todo-api
+module github.com/shubhamvernekar/todo-cli-go/cmd
 
-go 1.21.1
+go 1.21.3
 
-require (
-	github.com/gorilla/mux v1.8.0
-	github.com/urfave/cli/v2 v2.25.7
-)
+require github.com/urfave/cli/v2 v2.25.7
 
 require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
