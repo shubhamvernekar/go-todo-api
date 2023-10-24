@@ -6,7 +6,6 @@ var (
 	GETALL   = "/tasks"
 	GET      = "/task"
 	POST     = "/task"
-	PUT      = "/task"
 	DELETE   = "/task"
 	MARKDONE = "/task/markDone"
 )

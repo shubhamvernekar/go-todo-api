@@ -2,11 +2,11 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/zerolog/log"
 	"github.com/shubhamvernekar/go-todo-api/models"
 )
 
@@ -21,21 +21,24 @@ func SetupRoutes(router *mux.Router) {
 	router.HandleFunc("/task/markDone/{id:[0-9]+}", markDone).Methods("GET")
 }
 
-func getTasks(w http.ResponseWriter, r *http.Request) {
+func getTasks(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(task)
+	err := json.NewEncoder(w).Encode(task)
+	if err != nil {
+		log.Error().Msgf("error encoding json %v", err)
+	}
 }
 
 func getTask(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	taskId, err := strconv.Atoi(params["id"])
+	taskID, err := strconv.Atoi(params["id"])
 	if err != nil {
-		fmt.Println("error parsing id")
 		http.Error(w, "error parsing id", http.StatusInternalServerError)
+		log.Error().Msgf("error parsing id %v", err)
 		return
 	}
 
-	t := findTaskByID(taskId)
+	t := findTaskByID(taskID)
 
 	if t == nil {
 		http.NotFound(w, r)
@@ -43,53 +46,65 @@ func getTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(t)
+	err = json.NewEncoder(w).Encode(t)
+
+	if err != nil {
+		log.Error().Msgf("error encoding json %v", err)
+	}
 }
 
 func createTask(w http.ResponseWriter, r *http.Request) {
 	var newTask models.Task
 	err := json.NewDecoder(r.Body).Decode(&newTask)
 	if err != nil {
-		fmt.Println("error decoding request body")
 		http.Error(w, "error decoding request body", http.StatusInternalServerError)
+		log.Error().Msgf("error decoding request body %v", err)
 		return
 	}
 
-	newTask.ID = generateId()
+	newTask.ID = generateID()
 	task = append(task, newTask)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(newTask)
+	err = json.NewEncoder(w).Encode(newTask)
+
+	if err != nil {
+		log.Error().Msgf("error encoding json %v", err)
+	}
 }
 
 func deleteTask(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	taskId, err := strconv.Atoi(params["id"])
+	taskID, err := strconv.Atoi(params["id"])
 	if err != nil {
-		fmt.Println("error parsing id")
 		http.Error(w, "error parsing id", http.StatusInternalServerError)
+		log.Error().Msgf("error parsing id %v", err)
 		return
 	}
 
 	for i := range task {
-		if task[i].ID == taskId {
+		if task[i].ID == taskID {
 			task = append(task[:i], task[i+1:]...)
 			break
 		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(`{
+	err = json.NewEncoder(w).Encode(`{
 		"message" : "Successfully deleted"
 	}`)
+
+	if err != nil {
+		log.Error().Msgf("error encoding json : %v", err)
+	}
 }
 
 func updateTask(w http.ResponseWriter, r *http.Request) {
 	var updateTask models.Task
 	err := json.NewDecoder(r.Body).Decode(&updateTask)
 	if err != nil {
-		fmt.Println("error decoding request body")
 		http.Error(w, "error decoding request body", http.StatusInternalServerError)
+		log.Error().Msgf("error decoding request body %v", err)
 		return
 	}
 
@@ -97,24 +112,29 @@ func updateTask(w http.ResponseWriter, r *http.Request) {
 
 	if t == nil {
 		http.NotFound(w, r)
+		return
 	}
 
-	t.Desc = "hello"
+	t.Desc = updateTask.Desc
 	t.IsDone = updateTask.IsDone
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(t)
+	err = json.NewEncoder(w).Encode(t)
+
+	if err != nil {
+		log.Error().Msgf("error encoding json : %v", err)
+	}
 }
 
 func markDone(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	taskId, err := strconv.Atoi(params["id"])
+	taskID, err := strconv.Atoi(params["id"])
 	if err != nil {
-		fmt.Println("error parsing id")
 		http.Error(w, "error parsing id", http.StatusInternalServerError)
+		log.Error().Msgf("error parding id %v", err)
 		return
 	}
 
-	t := findTaskByID(taskId)
+	t := findTaskByID(taskID)
 
 	if t == nil {
 		http.NotFound(w, r)
@@ -124,12 +144,16 @@ func markDone(w http.ResponseWriter, r *http.Request) {
 	t.IsDone = !t.IsDone
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(t)
+	err = json.NewEncoder(w).Encode(t)
+
+	if err != nil {
+		log.Error().Msgf("error encoding json : %v", err)
+	}
 }
 
-func findTaskByID(ID int) *models.Task {
+func findTaskByID(id int) *models.Task {
 	for i := range task {
-		if task[i].ID == ID {
+		if task[i].ID == id {
 			return &task[i]
 		}
 	}
@@ -137,13 +161,9 @@ func findTaskByID(ID int) *models.Task {
 	return nil
 }
 
-func generateId() int {
+func generateID() int {
 	if len(task) == 0 {
 		return 1
 	}
 	return task[len(task)-1].ID + 1
-}
-
-func printTask() {
-	fmt.Println(task)
 }
