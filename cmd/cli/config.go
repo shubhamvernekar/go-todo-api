@@ -1,11 +1,11 @@
 package main
 
 var (
-	BASE_URL = "http://localhost"
-	PORT     = ":3000"
-	GETALL   = "/tasks"
-	GET      = "/task"
-	POST     = "/task"
-	DELETE   = "/task"
-	MARKDONE = "/task/markDone"
+	BaseURL    = "http://localhost"
+	Port       = ":3000"
+	GetAllTodo = "/tasks"
+	GetTodo    = "/task"
+	PostTodo   = "/task"
+	DeleteTodo = "/task"
+	MarkDone   = "/task/markDone"
 )

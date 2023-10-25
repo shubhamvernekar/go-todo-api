@@ -3,17 +3,16 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
-	"os"
-	"strconv"
 
 	"github.com/urfave/cli/v2"
 )
 
-var ApiFlags = []cli.Flag{
+var APIFlags = []cli.Flag{
 	&cli.StringFlag{
 		Name: "title",
 	},
@@ -22,7 +21,7 @@ var ApiFlags = []cli.Flag{
 	},
 }
 
-var ApiCommands = []*cli.Command{
+var APICommands = []*cli.Command{
 	{
 		Name:   "get_all",
 		Usage:  "Get all todos list",
@@ -51,38 +50,26 @@ var ApiCommands = []*cli.Command{
 }
 
 type Todo struct {
-	ID     int    `json:id`
-	Desc   string `json:Desc`
-	IsDone bool   `json:IsDone`
+	ID     int    `json:"id"`
+	Desc   string `json:"desc"`
+	IsDone bool   `json:"is_done"`
 }
 
 type Todos []struct {
 	Todo
 }
 
-func getAllTodos(ctx *cli.Context) error {
-	url := BASE_URL + PORT + GETALL
-
-	response, err := http.Get(url)
-
-	if err != nil || response.StatusCode != 200 {
-		log.Fatal("Error : ", err)
-		os.Exit(0)
-	}
-
-	responseData, err := ioutil.ReadAll(response.Body)
-
+func getAllTodos(_ *cli.Context) error {
+	responseData, err := makeHTTPCall(http.MethodGet, GetAllTodo, "")
 	if err != nil {
-		log.Fatal("Error : ", err)
-		os.Exit(0)
+		return fmt.Errorf("Error : %w", err)
 	}
 
 	todos := Todos{}
 	err = json.Unmarshal(responseData, &todos)
 
 	if err != nil {
-		log.Fatal("Error : ", err)
-		os.Exit(0)
+		return fmt.Errorf("Error : %w", err)
 	}
 
 	PrintTable(todos)
@@ -90,36 +77,24 @@ func getAllTodos(ctx *cli.Context) error {
 }
 
 func getTodo(ctx *cli.Context) error {
-	url := BASE_URL + PORT + GET
 	id := ctx.Int("id")
 
 	if id == 0 {
-		log.Fatal("Error : Invalid todo id provided")
-		os.Exit(0)
+		return fmt.Errorf("Error : %w", errors.New("Invalid todo id provided"))
 	}
 
-	url += "/" + strconv.Itoa(id)
+	url := fmt.Sprintf("%s/%d", GetTodo, id)
 
-	response, err := http.Get(url)
-
-	if err != nil || response.StatusCode != 200 {
-		log.Fatal("Error : ", err)
-		os.Exit(0)
-	}
-
-	responseData, err := ioutil.ReadAll(response.Body)
-
+	responseData, err := makeHTTPCall(http.MethodGet, url, "")
 	if err != nil {
-		log.Fatal(err)
-		os.Exit(0)
+		return fmt.Errorf("Error : %w", err)
 	}
 
 	todo := Todo{}
 	err = json.Unmarshal(responseData, &todo)
 
 	if err != nil {
-		log.Fatal("Error : ", err)
-		os.Exit(0)
+		return fmt.Errorf("Error : %w", err)
 	}
 
 	todos := Todos{struct{ Todo }{todo}}
@@ -128,45 +103,24 @@ func getTodo(ctx *cli.Context) error {
 }
 
 func createTodo(ctx *cli.Context) error {
-	url := BASE_URL + PORT + POST
 	title := ctx.String("title")
 
 	if len(title) == 0 {
-		log.Fatal("Error : Invalid todo title provided")
-		os.Exit(0)
+		return fmt.Errorf("Error : Invalid todo title provided")
 	}
 
-	jsonBody := []byte(fmt.Sprintf(`{"desc": "%s"}`, title))
-	bodyReader := bytes.NewReader(jsonBody)
-	client := &http.Client{}
+	jsonString := fmt.Sprintf(`{"desc":"%s"}`, title)
 
-	req, err := http.NewRequest(http.MethodPost, url, bodyReader)
+	responseData, err := makeHTTPCall(http.MethodPost, PostTodo, jsonString)
 	if err != nil {
-		log.Fatal("Error : ", err)
-		os.Exit(0)
-	}
-
-	response, err := client.Do(req)
-	if err != nil || response.StatusCode != 200 {
-		log.Fatal("Error : ", err)
-		os.Exit(0)
-	}
-
-	defer response.Body.Close()
-
-	responseData, err := ioutil.ReadAll(response.Body)
-
-	if err != nil {
-		log.Fatal(err)
-		os.Exit(0)
+		return fmt.Errorf("Error : %w", err)
 	}
 
 	todo := Todo{}
 	err = json.Unmarshal(responseData, &todo)
 
 	if err != nil {
-		log.Fatal("Error : ", err)
-		os.Exit(0)
+		return fmt.Errorf("Error : %w", err)
 	}
 
 	todos := Todos{struct{ Todo }{todo}}
@@ -175,69 +129,80 @@ func createTodo(ctx *cli.Context) error {
 }
 
 func deleteTodo(ctx *cli.Context) error {
-	url := BASE_URL + PORT + DELETE
 	id := ctx.Int("id")
 
 	if id == 0 {
-		log.Fatal("Error : Invalid todo id provided")
-		os.Exit(0)
+		return fmt.Errorf("Error : Invalid todo id provided")
 	}
 
-	url += "/" + strconv.Itoa(id)
-	client := &http.Client{}
+	url := fmt.Sprintf("%s/%d", DeleteTodo, id)
 
-	req, err := http.NewRequest("DELETE", url, nil)
+	_, err := makeHTTPCall(http.MethodDelete, url, "")
 	if err != nil {
-		log.Fatal("Error : ", err)
-		os.Exit(0)
+		return fmt.Errorf("Error : %w", err)
 	}
 
-	response, err := client.Do(req)
-	if err != nil || response.StatusCode != 200 {
-		log.Fatal("Error : ", err)
-		os.Exit(0)
-	}
-	defer response.Body.Close()
-
-	fmt.Printf("Todo %d Deleted successfully", id)
-
+	log.Printf("Todo %d Deleted successfully", id)
 	return nil
 }
 
 func markDone(ctx *cli.Context) error {
-	url := BASE_URL + PORT + MARKDONE
 	id := ctx.Int("id")
 
 	if id == 0 {
-		log.Fatal("Error : Invalid todo id provided")
-		os.Exit(0)
+		return fmt.Errorf("Error : Invalid todo id provided")
 	}
 
-	url += "/" + strconv.Itoa(id)
+	url := fmt.Sprintf("%s/%d", MarkDone, id)
 
-	response, err := http.Get(url)
-
-	if err != nil || response.StatusCode != 200 {
-		log.Fatal("Error : ", err)
-		os.Exit(0)
-	}
-
-	responseData, err := ioutil.ReadAll(response.Body)
-
+	responseData, err := makeHTTPCall(http.MethodGet, url, "")
 	if err != nil {
-		log.Fatal(err)
-		os.Exit(0)
+		return fmt.Errorf("Error : %w", err)
 	}
 
 	todo := Todo{}
 	err = json.Unmarshal(responseData, &todo)
-
 	if err != nil {
-		log.Fatal("Error : ", err)
-		os.Exit(0)
+		return fmt.Errorf("Error : %w", err)
 	}
 
 	todos := Todos{struct{ Todo }{todo}}
 	PrintTable(todos)
 	return nil
+}
+
+func makeHTTPCall(requestType string, route string, jsonString string) ([]byte, error) {
+	client := &http.Client{}
+	url := BaseURL + Port + route
+
+	var bodyReader io.Reader
+
+	if len(jsonString) > 0 {
+		jsonBody := []byte(jsonString)
+		bodyReader = bytes.NewReader(jsonBody)
+	}
+
+	request, err := http.NewRequest(requestType, url, bodyReader)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+
+	defer response.Body.Close()
+
+	responseData, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		err = fmt.Errorf("http statusCode %d, responseData %s", response.StatusCode, responseData)
+		return nil, err
+	}
+
+	return responseData, nil
 }
