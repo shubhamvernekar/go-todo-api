@@ -173,7 +173,7 @@ func markDone(ctx *cli.Context) error {
 
 func makeHTTPCall(requestType string, route string, jsonString string) ([]byte, error) {
 	client := &http.Client{}
-	url := BaseURL + Port + route
+	url := cfg.BaseURL + cfg.Port + route
 
 	var bodyReader io.Reader
 
