@@ -82,11 +82,19 @@ func deleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	found := false
+
 	for i := range task {
 		if task[i].ID == taskID {
 			task = append(task[:i], task[i+1:]...)
+			found = true
 			break
 		}
+	}
+
+	if !found {
+		http.NotFound(w, r)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")

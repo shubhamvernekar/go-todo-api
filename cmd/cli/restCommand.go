@@ -56,131 +56,17 @@ var APICommands = []*cli.Command{
 	},
 }
 
-type Todo struct {
-	ID     int    `json:"id"`
-	Desc   string `json:"desc"`
-	IsDone bool   `json:"is_done"`
+type RequestCaller interface {
+	makeHTTPCall(requestType string, route string, jsonString string) ([]byte, error)
 }
 
-type Todos []struct {
-	Todo
+type HTTPRequestCaller struct {
+	URL string
 }
 
-func getAllTodos(_ *cli.Context) error {
-	responseData, err := makeHTTPCall(http.MethodGet, GetAllTodo, "")
-	if err != nil {
-		return fmt.Errorf("%w : %w", ErrServerError, err)
-	}
-
-	todos := Todos{}
-	err = json.Unmarshal(responseData, &todos)
-
-	if err != nil {
-		return fmt.Errorf("%w : %w", ErrJSONUnmarshal, err)
-	}
-
-	PrintTable(todos)
-	return nil
-}
-
-func getTodo(ctx *cli.Context) error {
-	id := ctx.Int("id")
-
-	if id == 0 {
-		return fmt.Errorf("failed to parse id %w", ErrInvalidID)
-	}
-
-	url := fmt.Sprintf("%s/%d", GetTodo, id)
-
-	responseData, err := makeHTTPCall(http.MethodGet, url, "")
-	if err != nil {
-		return fmt.Errorf("%w : %w", ErrServerError, err)
-	}
-
-	var todo Todo
-	err = json.Unmarshal(responseData, &todo)
-
-	if err != nil {
-		return fmt.Errorf("%w : %w", ErrJSONUnmarshal, err)
-	}
-
-	todos := Todos{struct{ Todo }{todo}}
-	PrintTable(todos)
-	return nil
-}
-
-func createTodo(ctx *cli.Context) error {
-	title := ctx.String("title")
-
-	if len(title) == 0 {
-		return fmt.Errorf("failed to parse title %w ", ErrInvalidTitle)
-	}
-
-	jsonString := fmt.Sprintf(`{"desc":"%s"}`, title)
-
-	responseData, err := makeHTTPCall(http.MethodPost, PostTodo, jsonString)
-	if err != nil {
-		return fmt.Errorf("%w : %w", ErrServerError, err)
-	}
-
-	todo := Todo{}
-	err = json.Unmarshal(responseData, &todo)
-
-	if err != nil {
-		return fmt.Errorf("%w : %w", ErrJSONUnmarshal, err)
-	}
-
-	todos := Todos{struct{ Todo }{todo}}
-	PrintTable(todos)
-	return nil
-}
-
-func deleteTodo(ctx *cli.Context) error {
-	id := ctx.Int("id")
-
-	if id == 0 {
-		return fmt.Errorf("falied to parse id %w ", ErrInvalidID)
-	}
-
-	url := fmt.Sprintf("%s/%d", DeleteTodo, id)
-
-	_, err := makeHTTPCall(http.MethodDelete, url, "")
-	if err != nil {
-		return fmt.Errorf("%w : %w", ErrServerError, err)
-	}
-
-	log.Printf("Todo %d Deleted successfully", id)
-	return nil
-}
-
-func markDone(ctx *cli.Context) error {
-	id := ctx.Int("id")
-
-	if id == 0 {
-		return fmt.Errorf("falied to parse id %w ", ErrInvalidID)
-	}
-
-	url := fmt.Sprintf("%s/%d", MarkDone, id)
-
-	responseData, err := makeHTTPCall(http.MethodGet, url, "")
-	if err != nil {
-		return fmt.Errorf("%w : %w", ErrServerError, err)
-	}
-
-	todo := Todo{}
-	err = json.Unmarshal(responseData, &todo)
-	if err != nil {
-		return fmt.Errorf("%w : %w", ErrJSONUnmarshal, err)
-	}
-
-	todos := Todos{struct{ Todo }{todo}}
-	PrintTable(todos)
-	return nil
-}
-
-func makeHTTPCall(requestType string, route string, jsonString string) ([]byte, error) {
+func (h *HTTPRequestCaller) makeHTTPCall(requestType string, route string, jsonString string) ([]byte, error) {
 	client := &http.Client{}
-	url := cfg.BaseURL + cfg.Port + route
+	url := (h.URL + route)
 
 	var bodyReader io.Reader
 
@@ -211,4 +97,158 @@ func makeHTTPCall(requestType string, route string, jsonString string) ([]byte, 
 	}
 
 	return responseData, nil
+}
+
+var requestCaller RequestCaller
+
+type Todo struct {
+	ID     int    `json:"id"`
+	Desc   string `json:"desc"`
+	IsDone bool   `json:"is_done"`
+}
+
+type Todos []struct {
+	Todo
+}
+
+func getAllTodos(_ *cli.Context) error {
+	if requestCaller == nil {
+		requestCaller = &HTTPRequestCaller{
+			URL: cfg.BaseURL + cfg.Port,
+		}
+	}
+
+	responseData, err := requestCaller.makeHTTPCall(http.MethodGet, GetAllTodo, "")
+	if err != nil {
+		return fmt.Errorf("%w : %w", ErrServerError, err)
+	}
+
+	todos := Todos{}
+	err = json.Unmarshal(responseData, &todos)
+
+	if err != nil {
+		return fmt.Errorf("%w : %w", ErrJSONUnmarshal, err)
+	}
+
+	PrintTable(todos)
+	return nil
+}
+
+func getTodo(ctx *cli.Context) error {
+	id := ctx.Int("id")
+
+	if id == 0 {
+		return fmt.Errorf("failed to parse id %w", ErrInvalidID)
+	}
+
+	url := fmt.Sprintf("%s/%d", GetTodo, id)
+
+	if requestCaller == nil {
+		requestCaller = &HTTPRequestCaller{
+			URL: cfg.BaseURL + cfg.Port,
+		}
+	}
+
+	responseData, err := requestCaller.makeHTTPCall(http.MethodGet, url, "")
+	if err != nil {
+		return fmt.Errorf("%w : %w", ErrServerError, err)
+	}
+
+	var todo Todo
+	err = json.Unmarshal(responseData, &todo)
+
+	if err != nil {
+		return fmt.Errorf("%w : %w", ErrJSONUnmarshal, err)
+	}
+
+	todos := Todos{struct{ Todo }{todo}}
+	PrintTable(todos)
+	return nil
+}
+
+func createTodo(ctx *cli.Context) error {
+	title := ctx.String("title")
+
+	if len(title) == 0 {
+		return fmt.Errorf("failed to parse title %w ", ErrInvalidTitle)
+	}
+
+	jsonString := fmt.Sprintf(`{"desc":"%s"}`, title)
+
+	if requestCaller == nil {
+		requestCaller = &HTTPRequestCaller{
+			URL: cfg.BaseURL + cfg.Port,
+		}
+	}
+
+	responseData, err := requestCaller.makeHTTPCall(http.MethodPost, PostTodo, jsonString)
+	if err != nil {
+		return fmt.Errorf("%w : %w", ErrServerError, err)
+	}
+
+	todo := Todo{}
+	err = json.Unmarshal(responseData, &todo)
+
+	if err != nil {
+		return fmt.Errorf("%w : %w", ErrJSONUnmarshal, err)
+	}
+
+	todos := Todos{struct{ Todo }{todo}}
+	PrintTable(todos)
+	return nil
+}
+
+func deleteTodo(ctx *cli.Context) error {
+	id := ctx.Int("id")
+
+	if id == 0 {
+		return fmt.Errorf("falied to parse id %w ", ErrInvalidID)
+	}
+
+	url := fmt.Sprintf("%s/%d", DeleteTodo, id)
+
+	if requestCaller == nil {
+		requestCaller = &HTTPRequestCaller{
+			URL: cfg.BaseURL + cfg.Port,
+		}
+	}
+
+	_, err := requestCaller.makeHTTPCall(http.MethodDelete, url, "")
+	if err != nil {
+		return fmt.Errorf("%w : %w", ErrServerError, err)
+	}
+
+	log.Printf("Todo %d Deleted successfully", id)
+	return nil
+}
+
+func markDone(ctx *cli.Context) error {
+	id := ctx.Int("id")
+
+	if id == 0 {
+		return fmt.Errorf("falied to parse id %w ", ErrInvalidID)
+	}
+
+	url := fmt.Sprintf("%s/%d", MarkDone, id)
+
+	if requestCaller == nil {
+		requestCaller = &HTTPRequestCaller{
+			URL: cfg.BaseURL + cfg.Port,
+		}
+	}
+
+	responseData, err := requestCaller.makeHTTPCall(http.MethodGet, url, "")
+	if err != nil {
+		return fmt.Errorf("%w : %w", ErrServerError, err)
+	}
+
+	todo := Todo{}
+	err = json.Unmarshal(responseData, &todo)
+	if err != nil {
+		return fmt.Errorf("%w : %w", ErrJSONUnmarshal, err)
+	}
+
+	todos := Todos{struct{ Todo }{todo}}
+	PrintTable(todos)
+	return nil
 }
