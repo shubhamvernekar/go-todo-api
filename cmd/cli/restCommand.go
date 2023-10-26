@@ -12,6 +12,13 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+var (
+	ErrInvalidID     = errors.New("invalid id")
+	ErrInvalidTitle  = errors.New("invalid title")
+	ErrJSONUnmarshal = errors.New("json unmarshal")
+	ErrServerError   = errors.New("server error")
+)
+
 var APIFlags = []cli.Flag{
 	&cli.StringFlag{
 		Name: "title",
@@ -62,14 +69,14 @@ type Todos []struct {
 func getAllTodos(_ *cli.Context) error {
 	responseData, err := makeHTTPCall(http.MethodGet, GetAllTodo, "")
 	if err != nil {
-		return fmt.Errorf("Error : %w", err)
+		return fmt.Errorf("%w : %w", ErrServerError, err)
 	}
 
 	todos := Todos{}
 	err = json.Unmarshal(responseData, &todos)
 
 	if err != nil {
-		return fmt.Errorf("Error : %w", err)
+		return fmt.Errorf("%w : %w", ErrJSONUnmarshal, err)
 	}
 
 	PrintTable(todos)
@@ -80,21 +87,21 @@ func getTodo(ctx *cli.Context) error {
 	id := ctx.Int("id")
 
 	if id == 0 {
-		return fmt.Errorf("Error : %w", errors.New("Invalid todo id provided"))
+		return fmt.Errorf("failed to parse id %w", ErrInvalidID)
 	}
 
 	url := fmt.Sprintf("%s/%d", GetTodo, id)
 
 	responseData, err := makeHTTPCall(http.MethodGet, url, "")
 	if err != nil {
-		return fmt.Errorf("Error : %w", err)
+		return fmt.Errorf("%w : %w", ErrServerError, err)
 	}
 
-	todo := Todo{}
+	var todo Todo
 	err = json.Unmarshal(responseData, &todo)
 
 	if err != nil {
-		return fmt.Errorf("Error : %w", err)
+		return fmt.Errorf("%w : %w", ErrJSONUnmarshal, err)
 	}
 
 	todos := Todos{struct{ Todo }{todo}}
@@ -106,21 +113,21 @@ func createTodo(ctx *cli.Context) error {
 	title := ctx.String("title")
 
 	if len(title) == 0 {
-		return fmt.Errorf("Error : Invalid todo title provided")
+		return fmt.Errorf("failed to parse title %w ", ErrInvalidTitle)
 	}
 
 	jsonString := fmt.Sprintf(`{"desc":"%s"}`, title)
 
 	responseData, err := makeHTTPCall(http.MethodPost, PostTodo, jsonString)
 	if err != nil {
-		return fmt.Errorf("Error : %w", err)
+		return fmt.Errorf("%w : %w", ErrServerError, err)
 	}
 
 	todo := Todo{}
 	err = json.Unmarshal(responseData, &todo)
 
 	if err != nil {
-		return fmt.Errorf("Error : %w", err)
+		return fmt.Errorf("%w : %w", ErrJSONUnmarshal, err)
 	}
 
 	todos := Todos{struct{ Todo }{todo}}
@@ -132,14 +139,14 @@ func deleteTodo(ctx *cli.Context) error {
 	id := ctx.Int("id")
 
 	if id == 0 {
-		return fmt.Errorf("Error : Invalid todo id provided")
+		return fmt.Errorf("falied to parse id %w ", ErrInvalidID)
 	}
 
 	url := fmt.Sprintf("%s/%d", DeleteTodo, id)
 
 	_, err := makeHTTPCall(http.MethodDelete, url, "")
 	if err != nil {
-		return fmt.Errorf("Error : %w", err)
+		return fmt.Errorf("%w : %w", ErrServerError, err)
 	}
 
 	log.Printf("Todo %d Deleted successfully", id)
@@ -150,20 +157,20 @@ func markDone(ctx *cli.Context) error {
 	id := ctx.Int("id")
 
 	if id == 0 {
-		return fmt.Errorf("Error : Invalid todo id provided")
+		return fmt.Errorf("falied to parse id %w ", ErrInvalidID)
 	}
 
 	url := fmt.Sprintf("%s/%d", MarkDone, id)
 
 	responseData, err := makeHTTPCall(http.MethodGet, url, "")
 	if err != nil {
-		return fmt.Errorf("Error : %w", err)
+		return fmt.Errorf("%w : %w", ErrServerError, err)
 	}
 
 	todo := Todo{}
 	err = json.Unmarshal(responseData, &todo)
 	if err != nil {
-		return fmt.Errorf("Error : %w", err)
+		return fmt.Errorf("%w : %w", ErrJSONUnmarshal, err)
 	}
 
 	todos := Todos{struct{ Todo }{todo}}
@@ -200,8 +207,7 @@ func makeHTTPCall(requestType string, route string, jsonString string) ([]byte, 
 	}
 
 	if response.StatusCode != http.StatusOK {
-		err = fmt.Errorf("http statusCode %d, responseData %s", response.StatusCode, responseData)
-		return nil, err
+		return nil, fmt.Errorf("%w http statusCode %d, responseData %s", ErrServerError, response.StatusCode, responseData)
 	}
 
 	return responseData, nil
