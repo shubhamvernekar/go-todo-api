@@ -64,6 +64,17 @@ type HTTPRequestCaller struct {
 	URL string
 }
 
+type RequestCall interface {
+	Do(*http.Request) (*http.Response, error)
+}
+
+type Client struct {
+	baseUrl string
+	cli     RequestCall
+}
+
+var client Client
+
 func (h *HTTPRequestCaller) makeHTTPCall(requestType string, route string, jsonString string) ([]byte, error) {
 	client := &http.Client{}
 	url := (h.URL + route)
@@ -112,15 +123,25 @@ type Todos []struct {
 }
 
 func getAllTodos(_ *cli.Context) error {
-	if requestCaller == nil {
-		requestCaller = &HTTPRequestCaller{
-			URL: cfg.BaseURL + cfg.Port,
-		}
-	}
+	url := client.baseUrl + GetAllTodo
 
-	responseData, err := requestCaller.makeHTTPCall(http.MethodGet, GetAllTodo, "")
+	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return fmt.Errorf("%w : %w", ErrServerError, err)
+	}
+
+	response, err := client.cli.Do(request)
+	if err != nil {
+		return fmt.Errorf("%w : %w", ErrServerError, err)
+	}
+
+	defer response.Body.Close()
+
+	responseData, err := io.ReadAll(response.Body)
+	if err != nil {
+		return fmt.Errorf("%w : %w", ErrServerError, err)
+	} else if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("%w http statusCode %d, responseData %s", ErrServerError, response.StatusCode, responseData)
 	}
 
 	todos := Todos{}
@@ -141,20 +162,28 @@ func getTodo(ctx *cli.Context) error {
 		return fmt.Errorf("failed to parse id %w", ErrInvalidID)
 	}
 
-	url := fmt.Sprintf("%s/%d", GetTodo, id)
+	url := fmt.Sprintf("%s/%s/%d", client.baseUrl, GetTodo, id)
 
-	if requestCaller == nil {
-		requestCaller = &HTTPRequestCaller{
-			URL: cfg.BaseURL + cfg.Port,
-		}
-	}
-
-	responseData, err := requestCaller.makeHTTPCall(http.MethodGet, url, "")
+	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return fmt.Errorf("%w : %w", ErrServerError, err)
 	}
 
-	var todo Todo
+	response, err := client.cli.Do(request)
+	if err != nil {
+		return fmt.Errorf("%w : %w", ErrServerError, err)
+	}
+
+	defer response.Body.Close()
+
+	responseData, err := io.ReadAll(response.Body)
+	if err != nil {
+		return fmt.Errorf("%w : %w", ErrServerError, err)
+	} else if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("%w http statusCode %d, responseData %s", ErrServerError, response.StatusCode, responseData)
+	}
+
+	todo := Todo{}
 	err = json.Unmarshal(responseData, &todo)
 
 	if err != nil {
@@ -174,16 +203,32 @@ func createTodo(ctx *cli.Context) error {
 	}
 
 	jsonString := fmt.Sprintf(`{"desc":"%s"}`, title)
+	url := client.baseUrl + PostTodo
 
-	if requestCaller == nil {
-		requestCaller = &HTTPRequestCaller{
-			URL: cfg.BaseURL + cfg.Port,
-		}
+	var bodyReader io.Reader
+
+	if len(jsonString) > 0 {
+		jsonBody := []byte(jsonString)
+		bodyReader = bytes.NewReader(jsonBody)
 	}
 
-	responseData, err := requestCaller.makeHTTPCall(http.MethodPost, PostTodo, jsonString)
+	request, err := http.NewRequest(http.MethodPost, url, bodyReader)
 	if err != nil {
 		return fmt.Errorf("%w : %w", ErrServerError, err)
+	}
+
+	response, err := client.cli.Do(request)
+	if err != nil {
+		return fmt.Errorf("%w : %w", ErrServerError, err)
+	}
+
+	defer response.Body.Close()
+
+	responseData, err := io.ReadAll(response.Body)
+	if err != nil {
+		return fmt.Errorf("%w : %w", ErrServerError, err)
+	} else if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("%w http statusCode %d, responseData %s", ErrServerError, response.StatusCode, responseData)
 	}
 
 	todo := Todo{}
@@ -205,17 +250,22 @@ func deleteTodo(ctx *cli.Context) error {
 		return fmt.Errorf("falied to parse id %w ", ErrInvalidID)
 	}
 
-	url := fmt.Sprintf("%s/%d", DeleteTodo, id)
+	url := fmt.Sprintf("%s/%s/%d", client.baseUrl, DeleteTodo, id)
 
-	if requestCaller == nil {
-		requestCaller = &HTTPRequestCaller{
-			URL: cfg.BaseURL + cfg.Port,
-		}
-	}
-
-	_, err := requestCaller.makeHTTPCall(http.MethodDelete, url, "")
+	request, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
 		return fmt.Errorf("%w : %w", ErrServerError, err)
+	}
+
+	response, err := client.cli.Do(request)
+	if err != nil {
+		return fmt.Errorf("%w : %w", ErrServerError, err)
+	}
+
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("%w http statusCode %d", ErrServerError, response.StatusCode)
 	}
 
 	log.Printf("Todo %d Deleted successfully", id)
@@ -229,17 +279,25 @@ func markDone(ctx *cli.Context) error {
 		return fmt.Errorf("falied to parse id %w ", ErrInvalidID)
 	}
 
-	url := fmt.Sprintf("%s/%d", MarkDone, id)
+	url := fmt.Sprintf("%s/%s/%d", client.baseUrl, DeleteTodo, id)
 
-	if requestCaller == nil {
-		requestCaller = &HTTPRequestCaller{
-			URL: cfg.BaseURL + cfg.Port,
-		}
-	}
-
-	responseData, err := requestCaller.makeHTTPCall(http.MethodGet, url, "")
+	request, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
 		return fmt.Errorf("%w : %w", ErrServerError, err)
+	}
+
+	response, err := client.cli.Do(request)
+	if err != nil {
+		return fmt.Errorf("%w : %w", ErrServerError, err)
+	}
+
+	defer response.Body.Close()
+
+	responseData, err := io.ReadAll(response.Body)
+	if err != nil {
+		return fmt.Errorf("%w : %w", ErrServerError, err)
+	} else if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("%w http statusCode %d, responseData %s", ErrServerError, response.StatusCode, responseData)
 	}
 
 	todo := Todo{}

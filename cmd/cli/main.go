@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/urfave/cli/v2"
@@ -9,6 +10,11 @@ import (
 
 func main() {
 	LoadConfig()
+	client = Client{
+		baseUrl: cfg.BaseURL + cfg.Port,
+		cli:     http.DefaultClient,
+	}
+
 	app := &cli.App{
 		Name:     "todo",
 		Usage:    "cli for todo server https://github.com/shubhamvernekar/go-todo-api",

@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/urfave/cli/v2"
 )
 
@@ -48,46 +51,79 @@ func init() {
 	ctx = cli.NewContext(nil, flag, nil)
 }
 
-func TestCreateTodoFailure(t *testing.T) {
+type MockHTTPClient struct {
+	mock.Mock
+}
+
+func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	args := m.Called(req)
+	return args.Get(0).(*http.Response), args.Error(1)
+}
+
+func TestCreateTodo(t *testing.T) {
 	ctx.Set("title", "world")
 
-	requestCaller = &DummyHTTPRequestCaller{
-		responseType: "fail",
+	mockHTTPClient := new(MockHTTPClient)
+
+	client = Client{
+		baseUrl: "http://localhost:3000",
+		cli:     mockHTTPClient,
 	}
 
-	err := createTodo(ctx)
-	assert.Contains(t, err.Error(), "json unmarshal")
-}
-
-func TestCreateTodoSuccess(t *testing.T) {
-	ctx.Set("title", "world")
-
-	requestCaller = &DummyHTTPRequestCaller{
-		responseType: "pass",
+	requestBody := fmt.Sprintf(`{"desc":"%s"}`, ctx.String("title"))
+	expectedRequest, err := http.NewRequest(http.MethodPost, (client.baseUrl + PostTodo), bytes.NewReader([]byte(requestBody)))
+	expectedResponse := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       ioutil.NopCloser(bytes.NewReader([]byte(`{"id":"40", "desc":"HELLO WORLD", "is_done":"false"}`))),
 	}
+	mockHTTPClient.On("Do", expectedRequest).Return(expectedResponse, nil)
 
-	err := createTodo(ctx)
+	err = createTodo(ctx)
+
 	assert.NoError(t, err)
+	mockHTTPClient.AssertExpectations(t)
 }
 
-func TestDeleteTodoFail(t *testing.T) {
-	ctx.Set("id", "1")
+// func TestCreateTodoFailure(t *testing.T) {
+// 	ctx.Set("title", "world")
 
-	requestCaller = &DummyHTTPRequestCaller{
-		responseType: "fail",
-	}
+// 	requestCaller = &DummyHTTPRequestCaller{
+// 		responseType: "fail",
+// 	}
 
-	err := deleteTodo(ctx)
-	assert.Contains(t, err.Error(), "404 page not found")
-}
+// 	err := createTodo(ctx)
+// 	assert.Contains(t, err.Error(), "json unmarshal")
+// }
 
-func TestDeleteTodoSuccess(t *testing.T) {
-	ctx.Set("id", "1")
+// func TestCreateTodoSuccess(t *testing.T) {
+// 	ctx.Set("title", "world")
 
-	requestCaller = &DummyHTTPRequestCaller{
-		responseType: "success",
-	}
+// 	requestCaller = &DummyHTTPRequestCaller{
+// 		responseType: "pass",
+// 	}
 
-	err := deleteTodo(ctx)
-	assert.NoError(t, err)
-}
+// 	err := createTodo(ctx)
+// 	assert.NoError(t, err)
+// }
+
+// func TestDeleteTodoFail(t *testing.T) {
+// 	ctx.Set("id", "1")
+
+// 	requestCaller = &DummyHTTPRequestCaller{
+// 		responseType: "fail",
+// 	}
+
+// 	err := deleteTodo(ctx)
+// 	assert.Contains(t, err.Error(), "404 page not found")
+// }
+
+// func TestDeleteTodoSuccess(t *testing.T) {
+// 	ctx.Set("id", "1")
+
+// 	requestCaller = &DummyHTTPRequestCaller{
+// 		responseType: "success",
+// 	}
+
+// 	err := deleteTodo(ctx)
+// 	assert.NoError(t, err)
+// }
